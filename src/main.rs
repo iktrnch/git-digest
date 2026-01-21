@@ -1,45 +1,48 @@
 use clap::Parser;
-use std::fs;
+use std::{fs::{self, DirEntry}};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// Name of the person to greet
-    #[arg(short, long)]
+    #[arg(short, long, default_value = ".")]
     folder: String,
 }
 
 struct PathTree{
-    root: String,
     children: Vec<PathTree>,
+    files: Vec<DirEntry>,
 }
 
 impl PathTree {
-    fn print(&self, depth: usize) {
-        for _ in 0..depth {
-            print!("  ");
-        }
-        println!("{}", self.root);
-        for child in &self.children {
-            child.print(depth + 1);
+    fn print(&self) {
+        let mut stack = vec![(self, 0)];
+        while let Some((node, depth)) = stack.pop() {
+            let indent = "│   ".repeat(depth);
+            for file in &node.files {
+                println!("{}├── {}", indent, file.file_name().to_string_lossy());
+            }
+            for child in node.children.iter().rev() {
+                stack.push((child, depth + 1));
+            }
         }
     }
 }
 
-fn get_path_tree(tree: &mut PathTree) {
-    let root = fs::read_dir(&tree.root).unwrap();
+fn get_path_tree(root: &DirEntry, tree: &mut PathTree) {
+    let root = fs::read_dir(root.path()).unwrap();
     // Iterate over the inside directories
     for entry in root {
         let entry = entry.unwrap();
-        let path = entry.path();
-        if path.is_dir() {
-            let mut child_tree = PathTree {
-                root: path.to_str().unwrap().to_string(),
-                children: Vec::new(),
-            };
-            get_path_tree(&mut child_tree);
-            // Append recursively found children to the current tree
+        let mut child_tree = PathTree {
+            children: Vec::new(),
+            files: Vec::new(),
+        };
+        if entry.path().is_dir() {
+            get_path_tree(&entry, &mut child_tree);
             tree.children.push(child_tree);
+        } else {
+            tree.files.push(entry);
         }
     }
 }
@@ -47,11 +50,21 @@ fn get_path_tree(tree: &mut PathTree) {
 fn main() {
     let args = Args::parse();
     println!("Folder provided: {}", args.folder);
-    // find all .txt files in the provided folder
-    let mut tree = PathTree {
-        root: args.folder,
+    // find all directories in the provided folder
+    let mut file_tree = PathTree {
         children: Vec::new(),
+        files: Vec::new(),
     };
-    get_path_tree(&mut tree);
-    tree.print(0);
+    for entry in fs::read_dir(&args.folder).unwrap() {
+        let entry = entry.unwrap();
+        if entry.path().is_dir() {
+            let mut tree = PathTree {
+                children: Vec::new(),
+                files: Vec::new(),
+            };
+            get_path_tree(&entry, &mut tree);
+            file_tree.children.push(tree);
+        }
+    }
+    file_tree.print();
 }
