@@ -32,7 +32,7 @@ impl PathTree {
         file_tree
     }
 
-    pub fn print(&self) {
+    pub fn print_tree(&self) {
         let mut stack = vec![(self, 0)];
         println!("{}", self.root);
         while let Some((node, depth)) = stack.pop() {
@@ -45,6 +45,23 @@ impl PathTree {
                 stack.push((child, depth + 1));
             }
         }
+    }
+
+    pub fn print_files(&self) {
+        let mut out: String = String::new();
+        let mut stack = vec![self];
+        while let Some(node) = stack.pop() {
+            for file in &node.files {
+                out.push_str(&format!("========================================\n{}\n========================================\n", file.path().to_string_lossy()));
+                let contents = fs::read_to_string(file.path()).expect("Failed to read file");
+                out.push_str(&contents);
+                out.push_str("\n\n");
+            }
+            for child in &node.children {
+                stack.push(child);
+            }
+        }
+        println!("{}", out);
     }
 }
 
