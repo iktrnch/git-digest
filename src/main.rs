@@ -1,9 +1,10 @@
-mod pathtree;
 mod ignores;
+mod walker;
 
 use clap::Parser;
-use pathtree::PathTree;
 use ignores::Ignore;
+use walker::Walker;
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -11,27 +12,34 @@ struct Args {
     #[arg(short, long, default_value = ".")]
     directory: String,
 
-    /// Path to ignore file
-    #[arg(short, long, default_value = "./.gitignore")]
+    /// Filename of ignore file
+    #[arg(short, long, default_value = ".gitignore")]
     ignore: String,
 
     /// Output file tree structure
-    #[arg(short, long, default_value_t = false, action = clap::ArgAction::SetTrue)]
+    #[arg(short, long, default_value_t = true, action = clap::ArgAction::SetTrue)]
     tree: bool,
 
     /// Output file contents
-    #[arg(short, long, default_value_t = false, action = clap::ArgAction::SetTrue)]
+    #[arg(short, long, default_value_t = true, action = clap::ArgAction::SetTrue)]
     files: bool,
+
+    /// Only output files that match the regex pattern
+    /// Example: --pattern ".*\\.rs$" to only include Rust files
+    /// Note: This will be applied after the ignore rules, so it will only filter the files that are not ignored
+    #[arg(short, long, default_value = "*")]
+    pattern: String,
 }
 
 fn main() {
     let args = Args::parse();
-    let ignore = Ignore::new(&args.ignore);
-    let file_tree = PathTree::new(&args.directory, &ignore);
+    let mut file_walker = Walker::new(&args.directory);
+    file_walker.walk_dirs();
+
     if args.tree {
-        file_tree.print_tree();
+        file_walker.print_tree();
     }
-    if args.files {
-        file_tree.print_files();
-    }
+    // if args.files {
+    //     file_tree.print_files();
+    // }
 }
