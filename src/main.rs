@@ -1,7 +1,7 @@
-mod walker;
+mod digest;
 
 use clap::Parser;
-use walker::Walker;
+use digest::Digest;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -31,13 +31,12 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    let mut file_walker = Walker::new(&args.directory);
-    file_walker.walk_dirs(&args.pattern);
+    let digest = Digest::new(&args.directory, &args.pattern);
 
     if args.tree {
-        file_walker.print_tree();
+        digest.print_tree();
     }
     // if args.files {
-    //     file_tree.print_files();
+    //     digest.print_files();
     // }
 }

@@ -1,6 +1,7 @@
 use ignore::WalkBuilder;
 use regex::Regex;
 
+#[derive(Debug)]
 struct FileTree {
     /// Path to the directory
     root: String,
@@ -30,6 +31,11 @@ impl FileTree {
             }
             Some(p) => p,
         };
+        // Check if file is in root dir
+        if self.root == path.0 {
+            self.insert(path.1);
+            return;
+        }
 
         // Find the dir to insert to
         for child in &mut self.children {
@@ -39,7 +45,6 @@ impl FileTree {
             }
         }
         // If the directory doesnt exist - create it
-        println!("Creating new dir: {}", path.0);
         let mut new_child = FileTree::new(path.0);
         new_child.insert(path.1);
         self.append_child(new_child);
@@ -55,74 +60,77 @@ impl FileTree {
         self.files.push(file.to_string());
     }
 
-    fn print_children(&self, depth: usize, out: &mut String) {
+    fn print_children(&self, depth: &str, out: &mut String) {
         for (i, child) in self.children.iter().enumerate() {
-            let dir_name = child.root.as_str();
+            // Create appropriate indentation
+            let mut child_depth = "│   ";
+            let mut prefix = "├── ";
 
-            let prefix = if self.children.len() == i + 1 && self.files.len() != 0 {
-                "└─"
-            } else {
-                "├─"
-            };
+            if self.children.len() == i + 1 {
+                prefix = "└── ";
+                child_depth = "   ";
+            }
 
-            out.push_str(&format!(
-                "{}{} {}\n{}",
-                "│ ".repeat(depth),
-                prefix,
-                dir_name,
-                child.print(depth + 1)
-            ));
+            let child_depth = format!("{}{} ", depth, child_depth);
+
+            out.push_str(&format!("{}{}{}", depth, prefix, child.print(&child_depth)));
         }
     }
 
-    fn print_files(&self, depth: usize, out: &mut String) {
+    fn print_files(&self, depth: &str, out: &mut String) {
         for (i, file) in self.files.iter().enumerate() {
-            let prefix = if self.files.len() == i + 1 {
-                "└─"
+            let prefix = if self.files.len() == i + 1 && self.children.len() == 0 {
+                "└── "
             } else {
-                "├─"
+                "├── "
             };
 
-            out.push_str(&format!("{}{} {}\n", "│ ".repeat(depth), prefix, file));
+            out.push_str(&format!("{}{}{}\n", depth, prefix, file));
         }
     }
 
-    pub fn print(&self, depth: usize) -> String {
+    pub fn print(&self, depth: &str) -> String {
         let mut out: String = String::new();
 
-        self.print_children(depth, &mut out);
+        out.push_str(&format!("{}\n", self.root));
         self.print_files(depth, &mut out);
+        self.print_children(depth, &mut out);
 
         out
     }
 }
 
 /// Wrapper struct for file walker
-pub struct Walker {
+pub struct Digest {
     /// Stores creates an in-memory representation of the directory
     file_tree: FileTree,
 }
 
-impl Walker {
-    pub fn new(root_path: &str) -> Self {
-        Walker {
-            file_tree: FileTree::new(root_path),
+impl Digest {
+    pub fn new(root_path: &str, re_str: &str) -> Self {
+        Digest {
+            file_tree: Self::walk_dirs(root_path, re_str),
         }
     }
 
     /// Recursively walks through every directory and file starting from the root path
     /// And applies ignore patterns and building the file tree structure.
     /// The directory tree is traversed using BFS
-    pub fn walk_dirs(&mut self, re_str: &str) {
+    fn walk_dirs(path: &str, re_str: &str) -> FileTree {
+        let root = match path.split_once("/") {
+            None => path,
+            Some(val) => val.0,
+        };
+        let mut tree = FileTree::new(root);
         let re = Regex::new(re_str).unwrap();
 
-        let entries = WalkBuilder::new(&self.file_tree.root).build();
+        let entries = WalkBuilder::new(path).build();
         for entry in entries {
             match entry {
                 Ok(entry) => {
                     let path = entry.path().to_str().unwrap();
                     if entry.path().is_file() && re.is_match(path) {
-                        self.file_tree.insert(path);
+                        tree.insert(path);
                     }
                 }
                 Err(e) => {
@@ -130,9 +138,10 @@ impl Walker {
                 }
             }
         }
+        tree
     }
 
     pub fn print_tree(&self) {
-        println!("{}", self.file_tree.print(0));
+        println!("{}", self.file_tree.print(""));
     }
 }
