@@ -1,8 +1,6 @@
-mod ignores;
 mod walker;
 
 use clap::Parser;
-use ignores::Ignore;
 use walker::Walker;
 
 #[derive(Parser, Debug)]
@@ -27,14 +25,14 @@ struct Args {
     /// Only output files that match the regex pattern
     /// Example: --pattern ".*\\.rs$" to only include Rust files
     /// Note: This will be applied after the ignore rules, so it will only filter the files that are not ignored
-    #[arg(short, long, default_value = "*")]
+    #[arg(short, long, default_value = "")]
     pattern: String,
 }
 
 fn main() {
     let args = Args::parse();
     let mut file_walker = Walker::new(&args.directory);
-    file_walker.walk_dirs();
+    file_walker.walk_dirs(&args.pattern);
 
     if args.tree {
         file_walker.print_tree();

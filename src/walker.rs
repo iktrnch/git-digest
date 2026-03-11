@@ -1,7 +1,5 @@
-use crate::Ignore;
-use ignore::DirEntry;
-
 use ignore::WalkBuilder;
+use regex::Regex;
 
 struct FileTree {
     /// Path to the directory
@@ -9,7 +7,7 @@ struct FileTree {
     /// Vector of paths of child directories
     children: Vec<FileTree>,
     /// Vector of file paths in current directory
-    files: Vec<DirEntry>,
+    files: Vec<String>,
 }
 
 impl FileTree {
@@ -21,50 +19,45 @@ impl FileTree {
         }
     }
 
+    /// Inserts an entry into the tree
+    /// Recursively inserts directories before the file
+    pub fn insert(&mut self, path: &str) {
+        let path = match path.split_once("/") {
+            None => {
+                // We reached the file - insert
+                self.append_file(path);
+                return;
+            }
+            Some(p) => p,
+        };
+
+        // Find the dir to insert to
+        for child in &mut self.children {
+            if child.root == path.0 {
+                child.insert(path.1);
+                return;
+            }
+        }
+        // If the directory doesnt exist - create it
+        println!("Creating new dir: {}", path.0);
+        let mut new_child = FileTree::new(path.0);
+        new_child.insert(path.1);
+        self.append_child(new_child);
+    }
+
     /// Appends a child directory to the data structure
-    pub fn append_child(&mut self, child: FileTree) {
+    fn append_child(&mut self, child: FileTree) {
         self.children.push(child);
     }
 
     /// Appends files in the directory to the datastructure
-    pub fn append_file(&mut self, file: DirEntry) {
-        self.files.push(file);
-    }
-
-    pub fn walk_dirs(&mut self) {
-        // Get the children of the dir
-        let children = WalkBuilder::new(&self.root)
-            .min_depth(None)
-            .max_depth(Some(1))
-            .build();
-
-        // Append the entries to the tree
-        for entry in children {
-            let entry = entry.unwrap();
-
-            if entry.path().is_dir() {
-                // Skip the root itself (the "." entry)
-                let path = entry.path().to_str().unwrap();
-                if path == self.root {
-                    continue;
-                }
-                self.append_child(FileTree::new(path));
-            } else if entry.path().is_file() {
-                self.append_file(entry);
-            }
-        }
-
-        for child in &mut self.children {
-            child.walk_dirs();
-        }
+    fn append_file(&mut self, file: &str) {
+        self.files.push(file.to_string());
     }
 
     fn print_children(&self, depth: usize, out: &mut String) {
         for (i, child) in self.children.iter().enumerate() {
-            let dir_name = match self.root.rsplit_once("/") {
-                Some(name) => name.1,
-                None => self.root.as_str(),
-            };
+            let dir_name = child.root.as_str();
 
             let prefix = if self.children.len() == i + 1 && self.files.len() != 0 {
                 "└─"
@@ -72,14 +65,13 @@ impl FileTree {
                 "├─"
             };
 
-            let entry = format!(
+            out.push_str(&format!(
                 "{}{} {}\n{}",
                 "│ ".repeat(depth),
                 prefix,
                 dir_name,
                 child.print(depth + 1)
-            );
-            out.push_str(&entry);
+            ));
         }
     }
 
@@ -91,13 +83,7 @@ impl FileTree {
                 "├─"
             };
 
-            let entry = format!(
-                "{}{} {}\n",
-                "│ ".repeat(depth),
-                prefix,
-                file.file_name().to_str().unwrap()
-            );
-            out.push_str(&entry);
+            out.push_str(&format!("{}{} {}\n", "│ ".repeat(depth), prefix, file));
         }
     }
 
@@ -115,24 +101,35 @@ impl FileTree {
 pub struct Walker {
     /// Stores creates an in-memory representation of the directory
     file_tree: FileTree,
-    /// Stores the ignore patterns for each directory, where the key is the directory name and the value is a vector of ignore patterns for that directory
-    /// This allows to use ignore patterns from parent directories without copying them
-    ignore: Ignore,
 }
 
 impl Walker {
     pub fn new(root_path: &str) -> Self {
         Walker {
             file_tree: FileTree::new(root_path),
-            ignore: Ignore::new(),
         }
     }
 
     /// Recursively walks through every directory and file starting from the root path
     /// And applies ignore patterns and building the file tree structure.
     /// The directory tree is traversed using BFS
-    pub fn walk_dirs(&mut self) {
-        self.file_tree.walk_dirs();
+    pub fn walk_dirs(&mut self, re_str: &str) {
+        let re = Regex::new(re_str).unwrap();
+
+        let entries = WalkBuilder::new(&self.file_tree.root).build();
+        for entry in entries {
+            match entry {
+                Ok(entry) => {
+                    let path = entry.path().to_str().unwrap();
+                    if entry.path().is_file() && re.is_match(path) {
+                        self.file_tree.insert(path);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("ERROR: Could not access file\n{}", e);
+                }
+            }
+        }
     }
 
     pub fn print_tree(&self) {
