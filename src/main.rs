@@ -10,10 +10,6 @@ struct Args {
     #[arg(short, long, default_value = ".")]
     directory: String,
 
-    /// Filename of ignore file
-    #[arg(short, long, default_value = ".gitignore")]
-    ignore: String,
-
     /// Output file tree structure
     #[arg(short, long, default_value_t = true, action = clap::ArgAction::SetTrue)]
     tree: bool,
@@ -23,15 +19,22 @@ struct Args {
     files: bool,
 
     /// Only output files that match the regex pattern
-    /// Example: --pattern ".*\\.rs$" to only include Rust files
+    /// Example: --pattern ".rs" to only include Rust files
     /// Note: This will be applied after the ignore rules, so it will only filter the files that are not ignored
     #[arg(short, long, default_value = "")]
-    pattern: String,
+    include: String,
+
+    /// Exlude files which path matches the regex pattern
+    /// Example: --pattern ".png" will exlude all PNG files
+    /// Note: This will be applied after the ignore rules, so it will only filter the files that are not ignored
+    #[arg(short, long, default_value = "")]
+    exclude: String,
 }
 
 fn main() {
     let args = Args::parse();
-    let digest = Digest::new(&args.directory, &args.pattern);
+    let mut digest = Digest::new(&args);
+    digest.walk_dirs(&args.directory);
 
     if args.tree {
         digest.print_tree();

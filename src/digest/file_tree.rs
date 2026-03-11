@@ -1,8 +1,5 @@
-use ignore::WalkBuilder;
-use regex::Regex;
-
 #[derive(Debug)]
-struct FileTree {
+pub struct FileTree {
     /// Path to the directory
     root: String,
     /// Vector of paths of child directories
@@ -97,51 +94,5 @@ impl FileTree {
         self.print_children(depth, &mut out);
 
         out
-    }
-}
-
-/// Wrapper struct for file walker
-pub struct Digest {
-    /// Stores creates an in-memory representation of the directory
-    file_tree: FileTree,
-}
-
-impl Digest {
-    pub fn new(root_path: &str, re_str: &str) -> Self {
-        Digest {
-            file_tree: Self::walk_dirs(root_path, re_str),
-        }
-    }
-
-    /// Recursively walks through every directory and file starting from the root path
-    /// And applies ignore patterns and building the file tree structure.
-    /// The directory tree is traversed using BFS
-    fn walk_dirs(path: &str, re_str: &str) -> FileTree {
-        let root = match path.split_once("/") {
-            None => path,
-            Some(val) => val.0,
-        };
-        let mut tree = FileTree::new(root);
-        let re = Regex::new(re_str).unwrap();
-
-        let entries = WalkBuilder::new(path).build();
-        for entry in entries {
-            match entry {
-                Ok(entry) => {
-                    let path = entry.path().to_str().unwrap();
-                    if entry.path().is_file() && re.is_match(path) {
-                        tree.insert(path);
-                    }
-                }
-                Err(e) => {
-                    eprintln!("ERROR: Could not access file\n{}", e);
-                }
-            }
-        }
-        tree
-    }
-
-    pub fn print_tree(&self) {
-        println!("{}", self.file_tree.print(""));
     }
 }
