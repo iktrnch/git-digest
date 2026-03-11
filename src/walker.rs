@@ -59,27 +59,53 @@ impl FileTree {
         }
     }
 
-    pub fn print(&self, depth: usize) -> String {
-        let mut out: String = String::new();
+    fn print_children(&self, depth: usize, out: &mut String) {
+        for (i, child) in self.children.iter().enumerate() {
+            let dir_name = match self.root.rsplit_once("/") {
+                Some(name) => name.1,
+                None => self.root.as_str(),
+            };
 
-        for child in &self.children {
+            let prefix = if self.children.len() == i + 1 && self.files.len() != 0 {
+                "└─"
+            } else {
+                "├─"
+            };
+
             let entry = format!(
-                "{}\n{}{}\n",
-                self.root,
-                "  ".repeat(depth),
+                "{}{} {}\n{}",
+                "│ ".repeat(depth),
+                prefix,
+                dir_name,
                 child.print(depth + 1)
             );
             out.push_str(&entry);
         }
+    }
 
-        for file in &self.files {
+    fn print_files(&self, depth: usize, out: &mut String) {
+        for (i, file) in self.files.iter().enumerate() {
+            let prefix = if self.files.len() == i + 1 {
+                "└─"
+            } else {
+                "├─"
+            };
+
             let entry = format!(
-                "{}{}\n",
-                "  ".repeat(depth),
+                "{}{} {}\n",
+                "│ ".repeat(depth),
+                prefix,
                 file.file_name().to_str().unwrap()
             );
             out.push_str(&entry);
         }
+    }
+
+    pub fn print(&self, depth: usize) -> String {
+        let mut out: String = String::new();
+
+        self.print_children(depth, &mut out);
+        self.print_files(depth, &mut out);
 
         out
     }
