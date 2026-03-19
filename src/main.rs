@@ -27,7 +27,7 @@ struct Args {
     /// Exlude files which path matches the regex pattern
     /// Example: --pattern ".png" will exlude all PNG files
     /// Note: This will be applied after the ignore rules, so it will only filter the files that are not ignored
-    #[arg(short, long, default_value = "")]
+    #[arg(short, long, default_value = "^$")]
     exclude: String,
 }
 
