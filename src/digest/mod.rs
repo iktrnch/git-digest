@@ -1,6 +1,8 @@
 mod file_tree;
 mod matcher;
 
+use std::fs;
+
 use ignore::WalkBuilder;
 
 use crate::Args;
@@ -12,6 +14,7 @@ use matcher::Matcher;
 pub struct Digest {
     /// Stores creates an in-memory representation of the directory
     file_tree: FileTree,
+    file_buf: String,
     matcher: Matcher,
 }
 
@@ -25,6 +28,7 @@ impl Digest {
 
         Digest {
             file_tree: FileTree::new(initial_directory),
+            file_buf: String::new(),
             matcher: Matcher::new(&args.include, &args.exclude),
         }
     }
@@ -40,6 +44,7 @@ impl Digest {
                     let path = entry.path().to_str().unwrap();
                     if entry.path().is_file() && self.matcher.is_match(path) {
                         self.file_tree.insert(path);
+                        self.read_file(entry.path().to_str().unwrap());
                     }
                 }
                 Err(e) => {
@@ -49,7 +54,31 @@ impl Digest {
         }
     }
 
+    /// Reads the contents of the file into the buffer
+    /// Appends the header in a form of the path
+    fn read_file(&mut self, path: &str) {
+        // Pretty print the header
+        let header = format!(
+            "\n\n========================================\n{}\n========================================\n\n",
+            path
+        );
+
+        // Get the file contents
+        let contents =
+            fs::read_to_string(path).expect(format!("Failed to open file {}", path).as_str());
+
+        // Concatinate the header and the file contents
+        let mut file = header;
+        file.push_str(contents.as_str());
+
+        self.file_buf.push_str(file.as_str());
+    }
+
     pub fn print_tree(&self) {
         println!("{}", self.file_tree.print(""));
+    }
+
+    pub fn print_files(&self) {
+        println!("{}", self.file_buf);
     }
 }

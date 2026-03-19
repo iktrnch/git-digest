@@ -11,11 +11,11 @@ struct Args {
     directory: String,
 
     /// Output file tree structure
-    #[arg(short, long, default_value_t = true, action = clap::ArgAction::SetTrue)]
+    #[arg(short, long, default_value_t = false, action = clap::ArgAction::SetTrue)]
     tree: bool,
 
     /// Output file contents
-    #[arg(short, long, default_value_t = true, action = clap::ArgAction::SetTrue)]
+    #[arg(short, long, default_value_t = false, action = clap::ArgAction::SetTrue)]
     files: bool,
 
     /// Only output files that match the regex pattern
@@ -39,7 +39,7 @@ fn main() {
     if args.tree {
         digest.print_tree();
     }
-    // if args.files {
-    //     digest.print_files();
-    // }
+    if args.files {
+        digest.print_files();
+    }
 }
