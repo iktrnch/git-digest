@@ -1,9 +1,9 @@
 use regex::Regex;
 
 /// Matcher is used to check if the given file get to be a part of the final output
-/// Checks the file path for the patterns provided as CLI arguments
+/// Checks the file path for the patterns provided as CLI options
 pub struct Matcher {
-    match_re: Regex,
+    include_re: Regex,
     exclude_re: Regex,
 }
 
@@ -11,9 +11,9 @@ impl Matcher {
     /// Creates a new instance of matcher
     /// Validates given RegEx
     /// If given RegEx is incorrect returns an error and exits the process
-    pub fn new(match_pattern: &str, exclude_pattern: &str) -> Self {
+    pub fn new(include_pattern: &str, exclude_pattern: &str) -> Self {
         // Validate patterns
-        let match_re = match Regex::new(match_pattern) {
+        let include_re = match Regex::new(include_pattern) {
             Ok(re) => re,
             Err(e) => {
                 eprintln!("Failed to read match pattern\n{}", e);
@@ -29,7 +29,7 @@ impl Matcher {
         };
 
         Matcher {
-            match_re,
+            include_re,
             exclude_re,
         }
     }
@@ -37,6 +37,6 @@ impl Matcher {
     /// Check if the given string mathes the included regex
     /// and doesnt match the excluded
     pub fn is_match(&self, item: &str) -> bool {
-        self.match_re.is_match(item) && !self.exclude_re.is_match(item)
+        self.include_re.is_match(item) && !self.exclude_re.is_match(item)
     }
 }
